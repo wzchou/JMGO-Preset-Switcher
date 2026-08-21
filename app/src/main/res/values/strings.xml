@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">JMGO Preset Switcher</string>
+    <string name="accessibility_description">Intercepts a selected remote-control key and cycles JMGO saved projector positions.</string>
+</resources>
