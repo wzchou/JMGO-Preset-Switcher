@@ -57,19 +57,6 @@ class MainActivity : Activity() {
         root.addView(status)
 
         root.addView(Button(this).apply {
-            text = "1. Enable Accessibility Service"
-            setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-        }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-        root.addView(Button(this).apply {
-            text = "2. Learn Remote Button"
-            setOnClickListener {
-                AppPrefs.setLearnNextKey(this@MainActivity, true)
-                status.text = "Press the remote button you want to use once."
-            }
-        }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-        root.addView(Button(this).apply {
             text = "Preset count: ${AppPrefs.presetCount(this@MainActivity)} (press to change)"
             setOnClickListener {
                 val next = if (AppPrefs.presetCount(this@MainActivity) >= 10) 2 else AppPrefs.presetCount(this@MainActivity) + 1
@@ -114,7 +101,7 @@ class MainActivity : Activity() {
             }
         }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        root.addView(text("First test target: the ≡ / Menu button. Prime Video can also be learned if the firmware exposes it as a key event.", 15f))
+        root.addView(text("Press ≡ / Menu to switch to the next preset.", 18f))
         setContentView(root)
     }
 
