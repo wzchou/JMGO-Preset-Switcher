@@ -68,20 +68,39 @@ class MainActivity : Activity() {
         }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         root.addView(Button(this).apply {
-            text = "TEST DIRECT: Memory ID 3 (右邊)"
+            text = "Test next preset (2→3→4→1)"
+            setOnClickListener {
+                JmgoPresetAutomation(this@MainActivity).switchNext()
+            }
+        }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        root.addView(Button(this).apply {
+            text = "Test 正前方 (ID 2)"
+            setOnClickListener {
+                JmgoPresetAutomation(this@MainActivity).applyMemory(2)
+            }
+        }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        root.addView(Button(this).apply {
+            text = "Test 右邊 (ID 3)"
             setOnClickListener {
                 JmgoPresetAutomation(this@MainActivity).applyMemory(3)
             }
         }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        for (id in 1..6) {
-            root.addView(Button(this).apply {
-                text = "Test Memory ID $id"
-                setOnClickListener {
-                    JmgoPresetAutomation(this@MainActivity).applyMemory(id)
-                }
-            }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
+        root.addView(Button(this).apply {
+            text = "Test 左邊 (ID 4)"
+            setOnClickListener {
+                JmgoPresetAutomation(this@MainActivity).applyMemory(4)
+            }
+        }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        root.addView(Button(this).apply {
+            text = "Test full (ID 1)"
+            setOnClickListener {
+                JmgoPresetAutomation(this@MainActivity).applyMemory(1)
+            }
+        }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         root.addView(text("First test target: the ≡ / Menu button. Prime Video can also be learned if the firmware exposes it as a key event.", 15f))
         setContentView(root)

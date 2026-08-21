@@ -1,120 +1,262 @@
 package com.wzchou.jmgopresetswitcher
 
+import android.accessibilityservice.AccessibilityService
 import android.content.Context
-import android.os.IBinder
-import android.os.Parcel
+import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 
 class JmgoPresetAutomation(private val context: Context) {
 
-    companion object {
-        private const val SYSTEM_SERVICE = "jmgomiddle-01"
-        private const val SYSTEM_DESCRIPTOR =
-            "com.jmgo.middleware.service.IJmGOSystemService"
+    private val handler = Handler(Looper.getMainLooper())
 
-        private const val DLP_DESCRIPTOR =
-            "com.jmgo.middleware.dlp.IJmGODlpManagerService"
-
-        // Found from JMGO's own JmGOPTZ APK.
-        private const val TRANSACTION_GET_DLP = 5
-        private const val TRANSACTION_DLP_SET = 1
-
-        // Display-memory APPLY command.
-        private const val DISPLAY_MEMORY_APPLY = 326
-    }
+    // Desired cycle:
+    // 2 = 正前方
+    // 3 = 右邊
+    // 4 = 左邊
+    // 1 = full
+    private val cycleIds = intArrayOf(2, 3, 4, 1)
 
     fun switchNext() {
-        // Temporary v0.2 assumption: memory IDs 1..presetCount.
-        // Once direct Binder is proven, we'll read the real saved IDs automatically.
-        val id = AppPrefs.nextPreset(context) + 1
-        applyMemory(id)
+        val service = RemoteKeyAccessibilityService.instance
+        if (service == null) {
+            Toast.makeText(
+                context,
+                "Accessibility service not enabled",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val index = AppPrefs.nextPreset(context) % cycleIds.size
+        val memoryId = cycleIds[index]
+
+        openDisplayMemory()
+
+        // Wait for JMGO page to appear, then locate target card and apply it.
+        handler.postDelayed({
+            applyMemoryByVisibleCard(service, memoryId)
+        }, 700)
     }
 
     fun applyMemory(memoryId: Int) {
-        val result = runCatching {
-            val systemBinder = getSystemServiceBinder()
-                ?: error("jmgomiddle-01 not found")
-
-            val dlpBinder = getDlpBinder(systemBinder)
-                ?: error("DLP Binder not returned")
-
-            callDlpSet(dlpBinder, DISPLAY_MEMORY_APPLY, memoryId)
-        }
-
-        result.onSuccess {
+        val service = RemoteKeyAccessibilityService.instance
+        if (service == null) {
             Toast.makeText(
                 context,
-                "JMGO Memory ID $memoryId sent",
-                Toast.LENGTH_SHORT
+                "Accessibility service not enabled",
+                Toast.LENGTH_LONG
             ).show()
+            return
+        }
+
+        openDisplayMemory()
+
+        handler.postDelayed({
+            applyMemoryByVisibleCard(service, memoryId)
+        }, 700)
+    }
+
+    private fun openDisplayMemory() {
+        val intent = Intent("com.jmgo.ptz.DISPLAY_MEMORY").apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
+        }
+
+        runCatching {
+            context.startActivity(intent)
         }.onFailure {
             Toast.makeText(
                 context,
-                "Binder failed: ${it.javaClass.simpleName}: ${it.message}",
+                "Cannot open JMGO Display Memory",
                 Toast.LENGTH_LONG
             ).show()
         }
     }
 
-    private fun getSystemServiceBinder(): IBinder? {
-        val serviceManager = Class.forName("android.os.ServiceManager")
-        val getService = serviceManager.getDeclaredMethod(
-            "getService",
-            String::class.java
-        )
-        return getService.invoke(null, SYSTEM_SERVICE) as? IBinder
-    }
-
-    private fun getDlpBinder(systemBinder: IBinder): IBinder? {
-        val data = Parcel.obtain()
-        val reply = Parcel.obtain()
-
-        return try {
-            data.writeInterfaceToken(SYSTEM_DESCRIPTOR)
-
-            val ok = systemBinder.transact(
-                TRANSACTION_GET_DLP,
-                data,
-                reply,
-                0
-            )
-
-            if (!ok) error("System transaction 5 rejected")
-
-            reply.readException()
-            reply.readStrongBinder()
-        } finally {
-            data.recycle()
-            reply.recycle()
-        }
-    }
-
-    private fun callDlpSet(
-        binder: IBinder,
-        key: Int,
-        value: Int
+    private fun applyMemoryByVisibleCard(
+        service: AccessibilityService,
+        memoryId: Int
     ) {
-        val data = Parcel.obtain()
-        val reply = Parcel.obtain()
-
-        try {
-            data.writeInterfaceToken(DLP_DESCRIPTOR)
-            data.writeInt(key)
-            data.writeInt(value)
-
-            val ok = binder.transact(
-                TRANSACTION_DLP_SET,
-                data,
-                reply,
-                0
-            )
-
-            if (!ok) error("DLP transaction 1 rejected")
-
-            reply.readException()
-        } finally {
-            data.recycle()
-            reply.recycle()
+        val root = service.rootInActiveWindow ?: run {
+            Toast.makeText(
+                context,
+                "JMGO memory page not detected",
+                Toast.LENGTH_LONG
+            ).show()
+            return
         }
+
+        val targetName = when (memoryId) {
+            1 -> "full"
+            2 -> "正前方"
+            3 -> "右邊"
+            4 -> "左邊"
+            else -> return
+        }
+
+        val matched = findNodeByText(root, targetName)
+
+        if (matched == null) {
+            Toast.makeText(
+                context,
+                "Memory not found: $targetName",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val card = findClickableAncestor(matched) ?: matched.parent ?: matched
+
+        val applyButton = findApplyButtonNear(card)
+
+        if (applyButton != null && clickNodeOrParent(applyButton)) {
+            Toast.makeText(
+                context,
+                "Applied: $targetName",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            // Return to previous screen after JMGO receives the command.
+            handler.postDelayed({
+                service.performGlobalAction(
+                    AccessibilityService.GLOBAL_ACTION_BACK
+                )
+            }, 700)
+
+            return
+        }
+
+        // Fallback: try clicking the card itself.
+        if (clickNodeOrParent(card)) {
+            handler.postDelayed({
+                val newRoot = service.rootInActiveWindow ?: return@postDelayed
+
+                val buttons = mutableListOf<AccessibilityNodeInfo>()
+                collectNodes(newRoot, buttons)
+
+                val apply = buttons.firstOrNull {
+                    val txt = nodeText(it)
+                    txt.contains("立即套用", true) ||
+                    txt.contains("套用", true) ||
+                    txt.contains("Apply", true)
+                }
+
+                if (apply != null) {
+                    clickNodeOrParent(apply)
+
+                    handler.postDelayed({
+                        service.performGlobalAction(
+                            AccessibilityService.GLOBAL_ACTION_BACK
+                        )
+                    }, 700)
+                }
+            }, 300)
+        } else {
+            Toast.makeText(
+                context,
+                "Could not apply: $targetName",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun findNodeByText(
+        root: AccessibilityNodeInfo,
+        target: String
+    ): AccessibilityNodeInfo? {
+        val nodes = mutableListOf<AccessibilityNodeInfo>()
+        collectNodes(root, nodes)
+
+        return nodes.firstOrNull {
+            nodeText(it).equals(target, ignoreCase = true)
+        } ?: nodes.firstOrNull {
+            nodeText(it).contains(target, ignoreCase = true)
+        }
+    }
+
+    private fun findApplyButtonNear(
+        node: AccessibilityNodeInfo
+    ): AccessibilityNodeInfo? {
+        var current: AccessibilityNodeInfo? = node
+
+        repeat(5) {
+            val n = current ?: return null
+
+            val descendants = mutableListOf<AccessibilityNodeInfo>()
+            collectNodes(n, descendants)
+
+            descendants.firstOrNull {
+                val txt = nodeText(it)
+                txt.contains("立即套用", true) ||
+                txt.equals("套用", true) ||
+                txt.equals("Apply", true)
+            }?.let { return it }
+
+            current = n.parent
+        }
+
+        return null
+    }
+
+    private fun collectNodes(
+        node: AccessibilityNodeInfo,
+        out: MutableList<AccessibilityNodeInfo>
+    ) {
+        out += node
+
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let {
+                collectNodes(it, out)
+            }
+        }
+    }
+
+    private fun nodeText(node: AccessibilityNodeInfo): String {
+        return (
+            node.text?.toString()
+                ?: node.contentDescription?.toString()
+                ?: ""
+        ).trim()
+    }
+
+    private fun findClickableAncestor(
+        node: AccessibilityNodeInfo
+    ): AccessibilityNodeInfo? {
+        var current: AccessibilityNodeInfo? = node
+
+        repeat(6) {
+            val n = current ?: return null
+            if (n.isClickable) return n
+            current = n.parent
+        }
+
+        return null
+    }
+
+    private fun clickNodeOrParent(
+        node: AccessibilityNodeInfo
+    ): Boolean {
+        var current: AccessibilityNodeInfo? = node
+
+        repeat(6) {
+            val n = current ?: return false
+
+            if (
+                n.isClickable &&
+                n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            ) {
+                return true
+            }
+
+            current = n.parent
+        }
+
+        return false
     }
 }
