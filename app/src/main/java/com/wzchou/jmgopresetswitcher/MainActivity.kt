@@ -25,6 +25,19 @@ class MainActivity : Activity() {
         refreshStatus()
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            AppPrefs.setLastKey(this, event.keyCode)
+            status.text = "KEY RECEIVED: ${KeyEvent.keyCodeToString(event.keyCode)} (${event.keyCode})"
+
+            if (event.keyCode == KeyEvent.KEYCODE_MENU) {
+                JmgoPresetAutomation(this).switchNext()
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     private fun buildUi() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
