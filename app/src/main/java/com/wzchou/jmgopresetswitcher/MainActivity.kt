@@ -68,9 +68,20 @@ class MainActivity : Activity() {
         }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         root.addView(Button(this).apply {
-            text = "Test: switch to next preset"
-            setOnClickListener { JmgoPresetAutomation(this@MainActivity).switchNext() }
+            text = "TEST DIRECT: Memory ID 3 (右邊)"
+            setOnClickListener {
+                JmgoPresetAutomation(this@MainActivity).applyMemory(3)
+            }
         }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        for (id in 1..6) {
+            root.addView(Button(this).apply {
+                text = "Test Memory ID $id"
+                setOnClickListener {
+                    JmgoPresetAutomation(this@MainActivity).applyMemory(id)
+                }
+            }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
 
         root.addView(text("First test target: the ≡ / Menu button. Prime Video can also be learned if the firmware exposes it as a key event.", 15f))
         setContentView(root)
