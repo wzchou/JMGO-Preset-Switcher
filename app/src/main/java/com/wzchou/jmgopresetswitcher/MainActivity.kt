@@ -32,7 +32,6 @@ class MainActivity : Activity() {
 
             if (event.keyCode == KeyEvent.KEYCODE_MENU) {
                 JmgoPresetAutomation(this).switchNext()
-                return true
             }
         }
         return super.dispatchKeyEvent(event)

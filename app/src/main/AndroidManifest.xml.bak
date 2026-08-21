@@ -9,17 +9,10 @@
         <activity
             android:name=".MainActivity"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
-
-            <intent-filter>
-                <action android:name="android.app.action.TOGGLE_NOTIFICATION_HANDLER_PANEL" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-
         </activity>
 
         <service
@@ -34,12 +27,5 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
-
-        <activity
-            android:name=".KeyListenerActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:noHistory="false"
-            android:theme="@style/Theme.Transparent" />
     </application>
 </manifest>
